@@ -1,0 +1,162 @@
+---
+title: "Netflix Data Analysis"
+Author: Raian Rith
+date: '2022-09-26'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+
+# Installing Libraries:
+
+Installing all necessary libraries.
+
+```{r}
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(naniar)
+library(forcats)
+library(wordcloud)
+library(tm)
+library(SnowballC)
+library(RColorBrewer)
+library(tidytext)
+```
+
+## Used head function to look at top 6 rows of data and read the data in.
+
+We read the data in and then look at the first few rows of code. 
+
+```{r}
+library(readxl)
+netflix = read.csv("netflix_titles.csv")
+```
+
+#Summarize the Data
+
+We use the glimpse and summary functions to look at the summary of the data. 
+
+```{r}
+#glimpse(netflix)
+```
+
+```{r}
+#summary(netflix)
+```
+
+
+# Data Cleaning
+
+## Used separate function  to split date added column intop 2 columns
+
+We seperate the date column to have unique year and date columns. 
+
+```{r}
+netflix = netflix %>% separate(date_added,c("date_added", "year_added"), sep = ",")
+```
+
+We seperate the listed_in column to have unique categories for each movie. 
+
+```{r}
+netflix = netflix %>% separate(listed_in, c("Category1", "Category2", "Category3"), sep = ",")
+```
+
+
+## Country column analysis 
+
+We explore the country columns and drop the NA values. 
+
+```{r}
+library(dplyr)
+#Check how many NA values we have in the column
+netflix = netflix %>% 
+  mutate(country = ifelse(country == "", NA, country ))
+ netflix %>% count(is.na(netflix$country), sort = TRUE)
+ 
+ country <- drop_na(netflix, country) 
+```
+
+## We see top countries in Netflix based on the number of movies and tv shows
+
+```{r}
+country %>% group_by(country) %>% count(country, type) %>% arrange((desc(n))) %>% head(25)
+```
+
+# Data Visualization
+
+Movies and tv shows over the years.
+
+```{r}
+ggplot(netflix, mapping = aes(x=release_year, fill = type)) +
+geom_histogram(color = "black", binwidth=2)+
+labs(title="Releases by Year")
+```
+
+In the graph above, we see the density of movies and tv shows each year for Netflix. We see that Netflix had the highest number of moovies and tv shows combined around 2020. 
+
+# Top 25 countries on Netflix 
+
+In the graph below we see the top 25 countries on Netflix. We see that after United States, India is the highest in terms of adding movies to Netflix. 
+
+```{r}
+netflix %>%
+count(is.na(netflix$country), sort = TRUE)
+country_release <- drop_na(netflix, country)
+country_release %>%
+    count(country, sort = TRUE) %>%
+    group_by(country) %>%
+    head(25) %>%
+    ggplot(aes(x=reorder(country, n), y=n, fill=country)) +
+    geom_col(show.legend = FALSE) +
+    labs(x="Sum of Movies and TV Shows Frequency", y="Movies and TV Shows Rleased", title="Top 25 Countries on Netflix") +
+    coord_flip() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    geom_label(aes(label=n), show.legend=FALSE) +
+    scale_y_continuous(expand = c(0, 0), limits = c(0, 3000))
+```
+## Netflix Rating Analysis for Movies and TV Shows. 
+
+Here, we see that Netflix has the highest number of movies and TV Shows rated TV-MA.
+
+
+```{r}
+netflix %>%
+ filter(!(rating %in% c("74 min", "84 min", "66 min", ""))) %>%
+ ggplot() +
+  aes(x = rating, fill = rating) +
+  geom_bar() +
+  scale_fill_hue(direction = 1) +
+  labs(x = "Rating", y = "Count", title = "Rating by Type") +
+  theme_minimal() +
+  facet_wrap(vars(type)) +theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+```{r}
+library(wordcloud)
+
+desc_words_m <- netflix %>% select(type, show_id, description) %>%
+  filter(type == "Movie") %>% 
+    unnest_tokens(word, description) %>%
+    anti_join(stop_words)
+count_word <- desc_words_m %>%
+   count(word, sort = TRUE)
+wordcloud(words = count_word$word,  
+          freq = count_word$n, 
+          min.freq = 50,  
+          max.words = nrow(count_word), 
+          random.order = FALSE,  
+          rot.per = 0.1,  
+          colors = brewer.pal(8, "Dark2"))
+```
+
+The wordcloud above shows the most common words found in Netflix titles and descriptions. 
